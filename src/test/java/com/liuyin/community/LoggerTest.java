@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * @Author liu-Yin
@@ -39,5 +40,10 @@ public class LoggerTest {
         logger.warn("warn log");
         logger.error("error log");
         
+    }
+    
+    @Test
+    public  void testMd(){
+        System.out.println(UUID.randomUUID().toString());
     }
 }

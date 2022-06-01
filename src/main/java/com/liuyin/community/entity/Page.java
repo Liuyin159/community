@@ -6,7 +6,7 @@ package com.liuyin.community.entity;
  * @Description
  * 封装分页相关信息
  */
-public class Page {
+public class  Page {
     //当前页码
     private int current = 1;
     //显示上限

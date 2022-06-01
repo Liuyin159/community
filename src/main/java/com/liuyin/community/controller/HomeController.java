@@ -29,22 +29,28 @@ public class HomeController {
     
     @Autowired
     private UserService userService;
-    
+
+    /**
+     * 首页方法
+     * @param model
+     * @param page
+     * @return
+     */
     @RequestMapping(path = "/index",method = RequestMethod.GET)
-    // 方法调用钱,SpringMVC会自动实例化Model和Page,并将Page注入Model.
-    // 所以,在thymeleaf中可以直接访问Page对象中的数据.
     public String getIndexPage(Model model, Page page){
-        //获取总数据数
+        //springmvc会自动实例化model和page，并将page注入model
+        //获取总评论数
         page.setRows(discussPostService.findDiscussPostRows(0));
         page.setPath("/index");
         
-        //获取当前页
+        //list是当前页所有的评论对象
         List<DiscussPost> list = discussPostService.findDiscussPosts(0, page.getOffset(), page.getLimit());
         
         //根据查出来的userId通过userservice组装成为一个新的集合
         List<Map<String,Object>> discussPosts = new ArrayList<>();
         if(list != null){
             for(DiscussPost post : list){
+                //每个map对应一页的一个帖子信息和用户信息
                 Map<String,Object> map = new HashMap<>();
                 map.put("post",post);
                 User user = userService.getUserById(post.getUserId());
@@ -52,6 +58,8 @@ public class HomeController {
                 discussPosts.add(map);
             }
         }
+        //discussPosts是一个装map的list
+        //通过超链接传参，改变page对象的current值，使得动态改变页数。
         model.addAttribute("discussPosts",discussPosts);
         return "/index";
     }

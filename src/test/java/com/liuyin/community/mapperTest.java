@@ -1,14 +1,17 @@
 package com.liuyin.community;
 
 import com.liuyin.community.dao.DiscussPostMapper;
+import com.liuyin.community.dao.LoginTicketMapper;
 import com.liuyin.community.dao.UserMapper;
 import com.liuyin.community.entity.DiscussPost;
+import com.liuyin.community.entity.LoginTicket;
 import com.liuyin.community.entity.User;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ContextConfiguration;
 
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -25,6 +28,9 @@ public class  mapperTest {
     
     @Autowired
     private DiscussPostMapper discussPostMapper;
+    
+    @Autowired
+    private LoginTicketMapper loginTicketMapper;
     
     @Test
     public void testSelectById(){
@@ -69,5 +75,24 @@ public class  mapperTest {
         
         int row = discussPostMapper.selectDiscussPostRows(0);
         System.out.println(row);
+    }
+    @Test
+    public void testLoginTicketMapper(){
+        LoginTicket loginTicket = new LoginTicket();
+        loginTicket.setUserId(1);
+        loginTicket.setTicket("abc");
+        loginTicket.setStatus(0);
+        loginTicket.setExpired(new Date(System.currentTimeMillis() + 1000 * 60 *10));
+        int i = loginTicketMapper.insertLoginTicket(loginTicket);
+    }
+    @Test
+    public void testSelectLoginTicketMapper(){
+        LoginTicket abc = loginTicketMapper.selectByTicket("abc");
+        System.out.println(abc);
+
+
+        loginTicketMapper.updateStatus("abc", 1);
+        LoginTicket abc1 = loginTicketMapper.selectByTicket("abc");
+        System.out.println(abc1);
     }
 }
