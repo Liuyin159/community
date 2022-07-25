@@ -6,18 +6,19 @@ import com.liuyin.community.entity.LoginTicket;
 import com.liuyin.community.entity.User;
 import com.liuyin.community.util.CommunityUtill;
 import com.liuyin.community.util.MailClient;
+import com.liuyin.community.util.RedisKeyUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 import com.liuyin.community.util.CommunityConstant;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Author liu-Yin
@@ -25,7 +26,7 @@ import java.util.Random;
  * @Description
  */
 @Service
-public class UserService {
+public class UserService implements CommunityConstant{
 
     @Autowired
     private UserMapper userMapper;
@@ -36,8 +37,9 @@ public class UserService {
     @Autowired
     private TemplateEngine templateEngine;
     
+    
     @Autowired
-    private LoginTicketMapper loginTicketMapper;
+    private RedisTemplate redisTemplate;
     
     //一般注入配置文件的值用value注解,即把配置文件中的某一个变量的值付给下面变量
     @Value("${server.servlet.context-path}")
@@ -48,7 +50,16 @@ public class UserService {
     
     
     public User getUserById(int id){
-        return userMapper.selectById(id);
+//        return userMapper.selectById(id);
+        User user = getCache(id);
+        if(user == null){
+            user = initCache(id);
+        }
+        return user;
+    }
+    public User findUserByName(String name){
+        
+        return userMapper.selectByName(name);
     }
     
     public Map<String,Object> register(User user){
@@ -115,6 +126,7 @@ public class UserService {
             return CommunityConstant.ACTIVATION_REPEAT;
         }else if(user.getActivationCode().equals(code)){
             userMapper.updateStatus(userId,1);
+            clearCache(userId);
             return CommunityConstant.ACTIVATION_SUCCESS;
         }else {
             return CommunityConstant.ACTIVATION_FAILURE;
@@ -162,7 +174,9 @@ public class UserService {
         loginTicket.setStatus(0);
         loginTicket.setTicket(CommunityUtill.generateUUID());
         loginTicket.setExpired(new Date(System.currentTimeMillis() + expiredSeconds * 1000));
-        loginTicketMapper.insertLoginTicket(loginTicket);
+        //loginTicketMapper.insertLoginTicket(loginTicket);
+        String redisKey = RedisKeyUtil.getTicketKey(loginTicket.getTicket());
+        redisTemplate.opsForValue().set(redisKey, loginTicket);
         
         map.put("ticket",loginTicket.getTicket());
         return map;
@@ -170,15 +184,71 @@ public class UserService {
 
     }
     public void logout(String ticket){
-        loginTicketMapper.updateStatus(ticket,1);
-        
+        //loginTicketMapper.updateStatus(ticket,1);
+        //更改ticket的status状态并重新放入redis
+        String redisKey = RedisKeyUtil.getTicketKey(ticket);
+        LoginTicket loginTicket = (LoginTicket) redisTemplate.opsForValue().get(redisKey);
+        loginTicket.setStatus(1);
+        redisTemplate.opsForValue().set(redisKey, loginTicket);
     }
     //根据ticket得到loginTicket对象
     public LoginTicket findLoginTicket(String ticket){
-        return loginTicketMapper.selectByTicket(ticket);
+//        return loginTicketMapper.selectByTicket(ticket);
+        String redisKey = RedisKeyUtil.getTicketKey(ticket);
+        return (LoginTicket) redisTemplate.opsForValue().get(redisKey);
     }
     
     public int updateHeader(int userId,String headUrl){
-       return userMapper.updateHeader(userId,headUrl);
+        int rows = userMapper.updateHeader(userId, headUrl);
+        clearCache(userId);
+        return rows;
+
+    }
+
+    // 1.优先从缓存中取值
+    private User getCache(int userId) {
+        String redisKey = RedisKeyUtil.getUserKey(userId);
+        return (User) redisTemplate.opsForValue().get(redisKey);
+    }
+
+    // 2.取不到时初始化缓存数据
+    private User initCache(int userId) {
+        User user = userMapper.selectById(userId);
+        String redisKey = RedisKeyUtil.getUserKey(userId);
+        redisTemplate.opsForValue().set(redisKey, user, 3600, TimeUnit.SECONDS);
+        return user;
+    }
+
+    // 3.数据变更时清除缓存数据
+    private void clearCache(int userId) {
+        String redisKey = RedisKeyUtil.getUserKey(userId);
+        redisTemplate.delete(redisKey);
+    }
+
+    /**
+     * 
+     * @param userId
+     * @return
+     * 权限赋值，1是管理员，2是版主，3是普通用户
+     */
+    public Collection<? extends GrantedAuthority> getAuthorities(int userId) {
+        User user = this.getUserById(userId);
+
+        List<GrantedAuthority> list = new ArrayList<>();
+        list.add(new GrantedAuthority() {
+
+            @Override
+            public String getAuthority() {
+                switch (user.getType()) {
+                    case 1:
+                        return AUTHORITY_ADMIN;
+                    case 2:
+                        return AUTHORITY_MODERATOR;
+                    default:
+                        return AUTHORITY_USER;
+                }
+            }
+        });
+        return list;
     }
 }

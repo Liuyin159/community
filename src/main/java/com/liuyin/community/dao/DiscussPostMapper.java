@@ -14,11 +14,22 @@ import java.util.List;
  */
 @Mapper
 public interface DiscussPostMapper {
-    List<DiscussPost> selectDiscussPosts(int userId,int offset,int limit);
+    List<DiscussPost> selectDiscussPosts(int userId,int offset,int limit,int orderMode);
     
     int selectDiscussPostRows(@Param("userId") int userId);
 
     int insertDiscussPost(DiscussPost discussPost);
 
     DiscussPost selectDiscussPostById(int id);
+    
+    int updateCommentCount(int id,int commentCount);
+    
+    //根据id改变类型
+    int updateType(int id, int type);
+    
+    //根据id改变状态
+    int updateStatus(int id, int status);
+    
+    //更新帖子分数
+    int updateScore(int id, double score);
 }
